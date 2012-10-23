@@ -56,8 +56,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 
 + (NSEntityDescription *)entity
 {
-    NSString *className = [NSString stringWithCString:class_getName([self class]) encoding:NSASCIIStringEncoding];
-    return [NSEntityDescription entityForName:className inManagedObjectContext:[NSManagedObjectContext contextForCurrentThread]];
+    return [self entityDescription];
 }
 
 + (NSFetchRequest *)fetchRequest
@@ -268,8 +267,14 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 
 + (NSEntityDescription *)entityDescriptionInContext:(NSManagedObjectContext *)context
 {
-    NSString *entityName = NSStringFromClass([self class]);
-    return [NSEntityDescription entityForName:entityName inManagedObjectContext:context];
+    NSManagedObjectModel *model = [[context persistentStoreCoordinator] managedObjectModel];
+    NSString *className = NSStringFromClass(self);
+    for (NSEntityDescription *entity in model) {
+        if ([className isEqualToString:[entity managedObjectClassName]]) {
+            return entity;
+        }
+    }
+    return nil;
 }
 
 + (NSEntityDescription *)entityDescription
@@ -757,8 +762,8 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 
 + (id)createInContext:(NSManagedObjectContext *)context
 {
-    NSString *entityName = NSStringFromClass([self class]);
-    return [NSEntityDescription insertNewObjectForEntityForName:entityName inManagedObjectContext:context];
+    NSEntityDescription *entity = [self entityDescriptionInContext:context];
+    return [[self alloc] initWithEntity:entity insertIntoManagedObjectContext:context];
 }
 
 + (id)createEntity
