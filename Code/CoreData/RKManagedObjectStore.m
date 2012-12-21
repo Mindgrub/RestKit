@@ -332,7 +332,7 @@ static RKManagedObjectStore *defaultObjectStore = nil;
     NSURL *storeURL = [NSURL fileURLWithPath:self.pathToStoreFile];
 
     NSError *error;
-    _persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:_managedObjectModel];
+    _persistentStoreCoordinator = [[GDNSPersistentStoreCoordinator alloc] initWithManagedObjectModel:_managedObjectModel];
 
     // Allow inferred migration from the original version of the application.
     NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:
