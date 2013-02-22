@@ -12,16 +12,12 @@ rescue LoadError
   # No debugging...
 end
 
-ENV["DB"] = "rack_oauth2_server"
-
 # Import the RestKit Test server
 $: << File.join(File.expand_path(File.dirname(__FILE__)), 'lib')
 require File.expand_path(File.dirname(__FILE__)) + '/fixtures'
 require 'restkit/network/authentication'
 require 'restkit/network/etags'
 require 'restkit/network/timeout'
-require 'restkit/network/oauth1'
-require 'restkit/network/oauth2'
 require 'restkit/network/redirection'
 
 class Person < Struct.new(:name, :age)
@@ -86,6 +82,23 @@ class RestKitTestServer < Sinatra::Base
     status 200
     content_type 'application/json'
     "{}"
+  end
+
+  delete '/humans/204' do
+    status 204
+    content_type 'application/json'
+  end
+  
+  delete '/humans/empty' do
+    status 200
+    content_type 'application/json'
+    ""
+  end
+  
+  delete '/humans/success' do
+    status 200
+    content_type 'application/json'
+    {:human => {:status => 'OK'}}.to_json
   end
 
   post '/echo_params' do
@@ -189,9 +202,14 @@ class RestKitTestServer < Sinatra::Base
     content_type 'application/json'
     render_fixture('/JSON/errors.json', :status => 500)
   end
+  
+  get '/500' do
+    status 500
+    content_type 'application/json'
+  end
 
   # Expects an uploaded 'file' param
-  post '/upload' do
+  post '/api/upload/' do
     unless params['file']
       status 500
       return "No file parameter was provided"
@@ -201,7 +219,8 @@ class RestKitTestServer < Sinatra::Base
       f.write(params['file'][:tempfile].read)
     end
     status 200
-    "Uploaded successfully to '#{upload_path}'"
+    content_type 'application/json'
+    { :name => "Blake" }.to_json
   end
 
   # Return 200 after a delay
@@ -220,8 +239,6 @@ class RestKitTestServer < Sinatra::Base
     total_entries = 6
     current_page = params[:page].to_i
     entries = []
-
-    puts "Params are: #{params.inspect}. CurrentPage = #{current_page}"
 
     case current_page
       when 1
@@ -242,7 +259,7 @@ class RestKitTestServer < Sinatra::Base
     end
 
     {:per_page => per_page, :total_entries => total_entries,
-     :current_page => current_page, :entries => entries}.to_json
+     :current_page => current_page, :entries => entries, :total_pages => 3}.to_json
   end
   
   get '/coredata/etag' do
@@ -255,6 +272,56 @@ class RestKitTestServer < Sinatra::Base
       etag(tag)
       render_fixture '/JSON/humans/all.json'
     end
+  end
+  
+  get '/object_manager/cancel' do
+    sleep 0.05
+    status 204
+  end
+  
+  get '/object_manager/:objectID/cancel' do
+    sleep 0.05
+    status 204
+  end
+  
+  get '/304' do
+    status 304
+  end
+  
+  get '/204_with_not_modified_status' do
+    status 204
+    response.headers['Status'] = '304 Not Modified'
+  end
+  
+  delete '/humans/1234/whitespace' do
+    content_type 'application/json'
+    status 200
+    ' '
+  end
+  
+  post '/ComplexUser' do
+    content_type 'application/json'
+    render_fixture('/JSON/ComplexNestedUser.json', :status => 200)
+  end
+  
+  get '/posts.json' do
+    content_type 'application/json'
+    { :posts => [{:title => 'Post Title', :body => 'Some body.', :tags => [{ :name => 'development' }, { :name => 'restkit' }] }] }.to_json
+  end
+  
+  post '/posts.json' do
+    content_type 'application/json'
+    { :post => { :title => 'Post Title', :body => 'Some body.', :tags => [{ :name => 'development' }, { :name => 'restkit' }] } }.to_json
+  end
+
+  get '/posts_with_invalid.json' do
+    content_type 'application/json'
+    { :posts => [{:title => 'Post Title', :body => 'Some body.'}, {:title => '', :body => 'Some body.'} ] }.to_json
+  end
+  
+  get '/posts/:post_id/tags' do
+    content_type 'application/json'
+    [{ :name => 'development' }, { :name => 'restkit' }].to_json
   end
 
   # start the server if ruby file executed directly

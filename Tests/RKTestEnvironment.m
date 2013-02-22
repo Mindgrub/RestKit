@@ -20,16 +20,6 @@
 
 #include <objc/runtime.h>
 #import "RKTestEnvironment.h"
-#import "RKParserRegistry.h"
-
-RKOAuthClient *RKTestNewOAuthClient(RKTestResponseLoader *loader)
-{
-    [loader setTimeout:10];
-    RKOAuthClient *client = [RKOAuthClient clientWithClientID:@"4fa42a4a7184796662000001" secret:@"restkit_secret"];
-    client.delegate = loader;
-    client.authorizationURL = [NSString stringWithFormat:@"%@/oauth2/pregen/token", [RKTestFactory baseURLString]];
-    return client;
-}
 
 @implementation RKTestCase
 
@@ -43,17 +33,38 @@ RKOAuthClient *RKTestNewOAuthClient(RKTestResponseLoader *loader)
     // Ensure the required directories exist
     BOOL directoryExists;
     NSError *error = nil;
-    directoryExists = [RKDirectory ensureDirectoryExistsAtPath:[RKDirectory applicationDataDirectory] error:&error];
+    directoryExists = RKEnsureDirectoryExistsAtPath(RKApplicationDataDirectory(), &error);
     if (! directoryExists) {
         RKLogError(@"Failed to create application data directory. Unable to run tests: %@", error);
         NSAssert(directoryExists, @"Failed to create application data directory.");
     }
 
-    directoryExists = [RKDirectory ensureDirectoryExistsAtPath:[RKDirectory cachesDirectory] error:&error];
+    directoryExists = RKEnsureDirectoryExistsAtPath(RKCachesDirectory(), &error);
     if (! directoryExists) {
         RKLogError(@"Failed to create caches directory. Unable to run tests: %@", error);
         NSAssert(directoryExists, @"Failed to create caches directory.");
     }
+    
+    // Configure logging from the environment variable. See RKLog.h for details
+    RKLogConfigureFromEnvironment();
+    
+    // Configure the Test Factory to use a specific model file
+    [RKTestFactory defineFactory:RKTestFactoryDefaultNamesManagedObjectStore withBlock:^id {
+        NSString *storePath = [RKApplicationDataDirectory() stringByAppendingPathComponent:RKTestFactoryDefaultStoreFilename];
+        NSURL *modelURL = [[RKTestFixture fixtureBundle] URLForResource:@"Data Model" withExtension:@"mom"];
+        NSManagedObjectModel *model = [[NSManagedObjectModel alloc] initWithContentsOfURL:modelURL];
+        RKManagedObjectStore *managedObjectStore = [[RKManagedObjectStore alloc] initWithManagedObjectModel:model];
+        NSError *error;
+        NSPersistentStore *persistentStore = [managedObjectStore addSQLitePersistentStoreAtPath:storePath fromSeedDatabaseAtPath:nil withConfiguration:nil options:nil error:&error];
+        if (persistentStore) {
+            BOOL success = [managedObjectStore resetPersistentStores:&error];
+            if (! success) {
+                RKLogError(@"Failed to reset persistent store: %@", error);
+            }
+        }
+        
+        return managedObjectStore;
+    }];
 }
 
 @end
