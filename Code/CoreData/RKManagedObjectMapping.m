@@ -45,8 +45,7 @@
 
 + (id)mappingForClass:(Class)objectClass inManagedObjectStore:(RKManagedObjectStore *)objectStore
 {
-    NSEntityDescription *entity = [objectClass entityDescriptionInContext:[objectStore primaryManagedObjectContext]];
-    return [self mappingForEntity:entity inManagedObjectStore:objectStore];
+    return [self mappingForEntityWithName:NSStringFromClass(objectClass) inManagedObjectStore:objectStore];
 }
 
 + (RKManagedObjectMapping *)mappingForEntity:(NSEntityDescription *)entity inManagedObjectStore:(RKManagedObjectStore *)objectStore
