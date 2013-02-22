@@ -92,12 +92,6 @@ void *NewBase64Decode(
 	size_t outputBufferSize =
 		((length+BASE64_UNIT_SIZE-1) / BASE64_UNIT_SIZE) * BINARY_UNIT_SIZE;
 	unsigned char *outputBuffer = (unsigned char *)malloc(outputBufferSize);
-    
-    if (outputBuffer == NULL)
-    {
-        [NSException raise:@"RKMallocFailedException" format:@"malloc failed in %s at %d", __PRETTY_FUNCTION__, __LINE__];
-        return NULL;
-    }
 	
 	size_t i = 0;
 	size_t j = 0;
