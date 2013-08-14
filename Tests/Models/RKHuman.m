@@ -32,6 +32,7 @@
 @dynamic createdAt;
 @dynamic updatedAt;
 @dynamic favoriteColors;
+@dynamic mutableFavoriteColors;
 
 @dynamic favoriteCatID;
 @dynamic favoriteCat;
@@ -48,5 +49,6 @@
 @dynamic housesResidedAt;
 @dynamic friends;
 @dynamic friendsInTheOrderWeMet;
+@dynamic houseID;
 
 @end

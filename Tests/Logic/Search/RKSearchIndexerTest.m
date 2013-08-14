@@ -21,10 +21,15 @@ static NSManagedObjectModel *RKManagedObjectModel()
 }
 
 @interface RKSearchIndexerTest : RKTestCase
-
+@property (nonatomic, strong) id observerReference;
 @end
 
 @implementation RKSearchIndexerTest
+
+- (void)tearDown
+{
+    if (self.observerReference) [[NSNotificationCenter defaultCenter] removeObserver:self.observerReference];
+}
 
 - (void)testAddingSearchIndexingToEntity
 {
@@ -179,7 +184,7 @@ static NSManagedObjectModel *RKManagedObjectModel()
 
     NSManagedObjectContext *indexingContext = [[NSManagedObjectContext alloc] initWithConcurrencyType:NSPrivateQueueConcurrencyType];
     [indexingContext setPersistentStoreCoordinator:persistentStoreCoordinator];
-    [[NSNotificationCenter defaultCenter] addObserverForName:NSManagedObjectContextDidSaveNotification object:indexingContext queue:nil usingBlock:^(NSNotification *notification) {
+    self.observerReference = [[NSNotificationCenter defaultCenter] addObserverForName:NSManagedObjectContextDidSaveNotification object:indexingContext queue:nil usingBlock:^(NSNotification *notification) {
         [managedObjectContext performBlock:^{
             [managedObjectContext mergeChangesFromContextDidSaveNotification:notification];
         }];
@@ -241,7 +246,7 @@ static NSManagedObjectModel *RKManagedObjectModel()
 
     NSManagedObjectContext *indexingContext = [[NSManagedObjectContext alloc] initWithConcurrencyType:NSPrivateQueueConcurrencyType];
     [indexingContext setPersistentStoreCoordinator:persistentStoreCoordinator];
-    [[NSNotificationCenter defaultCenter] addObserverForName:NSManagedObjectContextDidSaveNotification object:indexingContext queue:nil usingBlock:^(NSNotification *notification) {
+    self.observerReference = [[NSNotificationCenter defaultCenter] addObserverForName:NSManagedObjectContextDidSaveNotification object:indexingContext queue:nil usingBlock:^(NSNotification *notification) {
         [managedObjectContext performBlock:^{
             [managedObjectContext mergeChangesFromContextDidSaveNotification:notification];
         }];
@@ -312,7 +317,7 @@ static NSManagedObjectModel *RKManagedObjectModel()
 
     NSManagedObjectContext *indexingContext = [[NSManagedObjectContext alloc] initWithConcurrencyType:NSPrivateQueueConcurrencyType];
     [indexingContext setPersistentStoreCoordinator:persistentStoreCoordinator];
-    [[NSNotificationCenter defaultCenter] addObserverForName:NSManagedObjectContextDidSaveNotification object:indexingContext queue:nil usingBlock:^(NSNotification *notification) {
+    self.observerReference = [[NSNotificationCenter defaultCenter] addObserverForName:NSManagedObjectContextDidSaveNotification object:indexingContext queue:nil usingBlock:^(NSNotification *notification) {
         [managedObjectContext performBlock:^{
             [managedObjectContext mergeChangesFromContextDidSaveNotification:notification];
         }];
@@ -346,7 +351,7 @@ static NSManagedObjectModel *RKManagedObjectModel()
     
     NSManagedObjectContext *indexingContext = [[NSManagedObjectContext alloc] initWithConcurrencyType:NSPrivateQueueConcurrencyType];
     [indexingContext setPersistentStoreCoordinator:persistentStoreCoordinator];
-    [[NSNotificationCenter defaultCenter] addObserverForName:NSManagedObjectContextDidSaveNotification object:indexingContext queue:nil usingBlock:^(NSNotification *notification) {
+    self.observerReference = [[NSNotificationCenter defaultCenter] addObserverForName:NSManagedObjectContextDidSaveNotification object:indexingContext queue:nil usingBlock:^(NSNotification *notification) {
         [managedObjectContext performBlock:^{
             [managedObjectContext mergeChangesFromContextDidSaveNotification:notification];
         }];
@@ -369,7 +374,7 @@ static NSManagedObjectModel *RKManagedObjectModel()
     assertThatBool([operations[0] isCancelled], is(equalToBool(YES)));
     
     NSSet *searchWords = [human valueForKey:RKSearchWordsRelationshipName];
-    assertThat([searchWords valueForKey:@"word"], is(empty()));
+    assertThat([searchWords valueForKey:@"word"], isEmpty());
 }
 
 #pragma mark - Delegate Tests

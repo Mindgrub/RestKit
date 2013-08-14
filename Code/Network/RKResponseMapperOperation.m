@@ -126,7 +126,8 @@ static dispatch_queue_t RKResponseMapperSerializationQueue() {
 @property (nonatomic, strong, readwrite) NSArray *matchingResponseDescriptors;
 @property (nonatomic, strong, readwrite) NSDictionary *responseMappingsDictionary;
 @property (nonatomic, strong) RKMapperOperation *mapperOperation;
-@property (nonatomic, copy) id (^willMapDeserializedResponseBlock)(id deserializedResponseBody);
+@property (nonatomic, copy) id (^willMapDeserializedResponseBlock)(id);
+@property (nonatomic, copy) void(^didFinishMappingBlock)(RKMappingResult *, NSError *);
 @end
 
 @interface RKResponseMapperOperation (ForSubclassEyesOnly)
@@ -136,6 +137,33 @@ static dispatch_queue_t RKResponseMapperSerializationQueue() {
 @end
 
 @implementation RKResponseMapperOperation
+
+#pragma mark Data Source Registration
+
+static NSMutableDictionary *RKRegisteredResponseMapperOperationDataSourceClasses = nil;
+
++ (void)initialize
+{
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        RKRegisteredResponseMapperOperationDataSourceClasses = [NSMutableDictionary new];
+    });
+}
+
++ (void)registerMappingOperationDataSourceClass:(Class<RKMappingOperationDataSource>)dataSourceClass
+{
+    if (dataSourceClass && ![(Class)dataSourceClass conformsToProtocol:@protocol(RKMappingOperationDataSource)]) {
+        [NSException raise:NSInvalidArgumentException format:@"Registered data source class '%@' does not conform to the `RKMappingOperationDataSource` protocol.", NSStringFromClass(dataSourceClass)];
+    }
+    
+    if (dataSourceClass) {
+        [RKRegisteredResponseMapperOperationDataSourceClasses setObject:dataSourceClass forKey:(id<NSCopying>)self];
+    } else {
+        [RKRegisteredResponseMapperOperationDataSourceClasses removeObjectForKey:(id<NSCopying>)self];
+    }
+}
+
+#pragma mark 
 
 - (id)initWithRequest:(NSURLRequest *)request
              response:(NSHTTPURLResponse *)response
@@ -233,15 +261,24 @@ static dispatch_queue_t RKResponseMapperSerializationQueue() {
     [self.mapperOperation cancel];
 }
 
+- (void)willFinish
+{
+    if (self.isCancelled && !self.error) self.error = [NSError errorWithDomain:RKErrorDomain code:RKOperationCancelledError userInfo:nil];
+    
+    if (self.error && self.didFinishMappingBlock) self.didFinishMappingBlock(nil, self.error);
+    else if (self.didFinishMappingBlock) self.didFinishMappingBlock(self.mappingResult, nil);
+}
+
 - (void)main
 {
-    if (self.isCancelled) return;
+    if (self.isCancelled) return [self willFinish];
 
     BOOL isErrorStatusCode = [RKErrorStatusCodes() containsIndex:self.response.statusCode];
     
     // If we are an error response and empty, we emit an error that the content is unmappable
     if (isErrorStatusCode && [self hasEmptyResponse]) {
         self.error = RKUnprocessableErrorFromResponse(self.response);
+        [self willFinish];
         return;
     }
 
@@ -255,19 +292,21 @@ static dispatch_queue_t RKResponseMapperSerializationQueue() {
             self.mappingResult = nil;
         }
 
+        [self willFinish];
         return;
     }
 
     // Parse the response
     NSError *error;
     id parsedBody = [self parseResponseData:&error];
-    if (self.isCancelled) return;
+    if (self.isCancelled) return [self willFinish];
     if (! parsedBody) {
         RKLogError(@"Failed to parse response data: %@", [error localizedDescription]);
         self.error = error;
+        [self willFinish];
         return;
     }
-    if (self.isCancelled) return;        
+    if (self.isCancelled) return [self willFinish];        
     
     // Invoke the will map deserialized response block
     if (self.willMapDeserializedResponseBlock) {
@@ -276,6 +315,7 @@ static dispatch_queue_t RKResponseMapperSerializationQueue() {
             NSDictionary *userInfo = @{ NSLocalizedDescriptionKey: @"Mapping was declined due to a `willMapDeserializedResponseBlock` returning nil." };
             self.error = [NSError errorWithDomain:RKErrorDomain code:RKMappingErrorFromMappingResult userInfo:userInfo];
             RKLogError(@"Failed to parse response data: %@", [error localizedDescription]);
+            [self willFinish];
             return;
         }
     }
@@ -292,6 +332,7 @@ static dispatch_queue_t RKResponseMapperSerializationQueue() {
             if (! error) error = RKUnprocessableErrorFromResponse(self.response);
         }
         self.error = error;
+        [self willFinish];
         return;
     }
     
@@ -304,13 +345,12 @@ static dispatch_queue_t RKResponseMapperSerializationQueue() {
                                     NSURLErrorFailingURLStringErrorKey: [self.response.URL absoluteString],
                                     NSUnderlyingErrorKey: error};
         self.error = [[NSError alloc] initWithDomain:RKErrorDomain code:RKMappingErrorNotFound userInfo:userInfo];
+        [self willFinish];
         return;
     }
     
-    if (! self.mappingResult) {
-        self.error = error;
-        return;
-    }
+    if (! self.mappingResult) self.error = error;    
+    [self willFinish];
 }
 
 @end
@@ -319,7 +359,8 @@ static dispatch_queue_t RKResponseMapperSerializationQueue() {
 
 - (RKMappingResult *)performMappingWithObject:(id)sourceObject error:(NSError **)error
 {
-    RKObjectMappingOperationDataSource *dataSource = [RKObjectMappingOperationDataSource new];
+    Class dataSourceClass = [RKRegisteredResponseMapperOperationDataSourceClasses objectForKey:[self class]] ?: [RKObjectMappingOperationDataSource class];
+    id<RKMappingOperationDataSource> dataSource = [dataSourceClass new];
     self.mapperOperation = [[RKMapperOperation alloc] initWithRepresentation:sourceObject mappingsDictionary:self.responseMappingsDictionary];
     self.mapperOperation.mappingOperationDataSource = dataSource;
     self.mapperOperation.delegate = self.mapperDelegate;
@@ -347,6 +388,14 @@ static inline NSManagedObjectID *RKObjectIDFromObjectIfManaged(id object)
 
 @implementation RKManagedObjectResponseMapperOperation
 
++ (void)registerMappingOperationDataSourceClass:(Class<RKMappingOperationDataSource>)dataSourceClass
+{
+    if (dataSourceClass && ![(Class)dataSourceClass isSubclassOfClass:[RKManagedObjectMappingOperationDataSource class]]) {
+        [NSException raise:NSInvalidArgumentException format:@"Registered data source class '%@' does not inherit from the `RKManagedObjectMappingOperationDataSource` class: You must subclass `RKManagedObjectMappingOperationDataSource` in order to register a data source class for `RKManagedObjectResponseMapperOperation`.", NSStringFromClass(dataSourceClass)];
+    }
+    [super registerMappingOperationDataSourceClass:dataSourceClass];
+}
+
 - (void)cancel
 {
     [super cancel];
@@ -361,18 +410,23 @@ static inline NSManagedObjectID *RKObjectIDFromObjectIfManaged(id object)
     __block RKMappingResult *mappingResult = nil;
     self.operationQueue = [NSOperationQueue new];
     [self.managedObjectContext performBlockAndWait:^{
+        // We may have been cancelled before we made it onto the MOC's queue
+        if ([self isCancelled]) return;
+
         // Configure the mapper
         self.mapperOperation = [[RKMapperOperation alloc] initWithRepresentation:sourceObject mappingsDictionary:self.responseMappingsDictionary];
         self.mapperOperation.delegate = self.mapperDelegate;
         self.mapperOperation.metadata = self.mappingMetadata;
         
         // Configure a data source to defer execution of connection operations until mapping is complete
-        RKManagedObjectMappingOperationDataSource *dataSource = [[RKManagedObjectMappingOperationDataSource alloc] initWithManagedObjectContext:self.managedObjectContext
-                                                                                                                                          cache:self.managedObjectCache];
-        [self.operationQueue setMaxConcurrentOperationCount:1];
-        [self.operationQueue setName:[NSString stringWithFormat:@"Relationship Connection Queue for '%@'", self.mapperOperation]];
+        Class dataSourceClass = [RKRegisteredResponseMapperOperationDataSourceClasses objectForKey:[self class]] ?: [RKManagedObjectMappingOperationDataSource class];
+        RKManagedObjectMappingOperationDataSource *dataSource = [[dataSourceClass alloc] initWithManagedObjectContext:self.managedObjectContext
+                                                                                                                cache:self.managedObjectCache];
         dataSource.operationQueue = self.operationQueue;
         dataSource.parentOperation = self.mapperOperation;
+
+        [self.operationQueue setMaxConcurrentOperationCount:1];
+        [self.operationQueue setName:[NSString stringWithFormat:@"Relationship Connection Queue for '%@'", self.mapperOperation]];
         self.mapperOperation.mappingOperationDataSource = dataSource;
         
         if (NSLocationInRange(self.response.statusCode, RKStatusCodeRangeForClass(RKStatusCodeClassSuccessful))) {
@@ -383,10 +437,11 @@ static inline NSManagedObjectID *RKObjectIDFromObjectIfManaged(id object)
                 if (objectID) {
                     if ([objectID isTemporaryID]) RKLogWarning(@"Performing object mapping to temporary target objectID. Results may not be accessible without obtaining a permanent object ID.");
                     NSManagedObject *localObject = [self.managedObjectContext existingObjectWithID:objectID error:&blockError];
-                    NSAssert([localObject.managedObjectContext isEqual:self.managedObjectContext], @"Serious Core Data error: requested existing object with ID %@ in context %@, instead got an object reference in context %@. This may indicate that the objectID for your target managed object was obtained using `obtainPermanentIDsForObjects:error:` in the wrong context.", objectID, self.managedObjectContext, [localObject managedObjectContext]);
+                    NSAssert(localObject == nil || localObject.managedObjectContext == nil || [localObject.managedObjectContext isEqual:self.managedObjectContext], @"Serious Core Data error: requested existing object with ID %@ in context %@, instead got an object reference in context %@. This may indicate that the objectID for your target managed object was obtained using `obtainPermanentIDsForObjects:error:` in the wrong context.", objectID, self.managedObjectContext, [localObject managedObjectContext]);
                     if (! localObject) {
                         RKLogWarning(@"Failed to retrieve existing object with ID: %@", objectID);
                         RKLogCoreDataError(blockError);
+                        return;
                     }
                     self.mapperOperation.targetObject = localObject;
                 } else {

@@ -33,6 +33,7 @@
 @property (nonatomic, strong) NSDate *createdAt;
 @property (nonatomic, strong) NSDate *updatedAt;
 @property (nonatomic, strong) NSArray *favoriteColors;
+@property (nonatomic, strong) NSMutableSet *mutableFavoriteColors;
 
 @property (nonatomic, strong) NSSet *cats;
 @property (nonatomic, strong) NSNumber *favoriteCatID;
@@ -46,12 +47,12 @@
 @property (nonatomic, strong) NSSet *roommates;
 @property (nonatomic, strong) NSSet *tenants;
 @property (nonatomic, strong) RKHouse *residence;
-@property (nonatomic, strong) NSSet *housesResidedAt;
+@property (nonatomic, strong) NSOrderedSet *housesResidedAt;
 
 @property (nonatomic, strong) NSSet *friends;
 @property (nonatomic, strong) NSOrderedSet *friendsInTheOrderWeMet;
 @property (nonatomic, strong) NSNumber *isHappy;
-
+@property (nonatomic, strong) NSNumber *houseID;
 @end
 
 @interface RKHuman (CoreDataGeneratedAccessors)

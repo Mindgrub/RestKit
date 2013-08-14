@@ -17,6 +17,21 @@
 
 #pragma mark - RKPathAndQueryStringFromURLRelativeToURL
 
+- (void)testThatYesIsReturnedWhenTheGivenRequestMethodIsAnExactMatch
+{
+    expect(RKIsSpecificRequestMethod(RKRequestMethodPOST)).to.beTruthy();
+}
+
+- (void)testThatNoIsReturnedWhenTheGivenRequestMethodIsAny
+{
+    expect(RKIsSpecificRequestMethod(RKRequestMethodAny)).to.beFalsy();
+}
+
+- (void)testThatNoIsReturnedWhenTheGivenRequestMethodIsNotAnExactMatch
+{
+    expect(RKIsSpecificRequestMethod(RKRequestMethodGET | RKRequestMethodPOST)).to.beFalsy();
+}
+
 - (void)testThatNilIsReturnedWhenTheGivenURLIsNotRelativeToTheBaseURL
 {
     NSURL *baseURL = [NSURL URLWithString:@"http://google.com/path"];
@@ -103,6 +118,23 @@
     NSURL *testURL = [NSURL URLWithString:@"http://restkit.org/api/v1/search?this=that&type=search"];
     NSString *pathAndQueryString = RKPathAndQueryStringFromURLRelativeToURL(testURL, baseURL);
     expect(pathAndQueryString).to.equal(@"search?this=that&type=search");
+}
+
+- (void)testShouldNotDropTheTrailingSlashFromThePathOfAURLThatIncludesAQueryString
+{
+    NSURL *testURL = [NSURL URLWithString:@"http://restkit.org/api/v1/search/?this=that&type=search"];
+    NSString *pathAndQueryString = RKPathAndQueryStringFromURLRelativeToURL(testURL, nil);
+    expect(pathAndQueryString).to.equal(@"/api/v1/search/?this=that&type=search");
+}
+
+- (void)testRequestMethodStringForSimpleValue
+{
+    expect(RKStringFromRequestMethod(RKRequestMethodGET)).to.equal(@"GET");
+}
+
+- (void)testRequestMethodStringForCompoundValueReturnsNil
+{
+    expect(RKStringFromRequestMethod(RKRequestMethodGET|RKRequestMethodDELETE)).to.beNil();
 }
 
 @end

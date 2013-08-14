@@ -22,8 +22,11 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
     // Initialize RestKit
-    NSURL *baseURL = [NSURL URLWithString:@"http://twitter.com"];
+    NSURL *baseURL = [NSURL URLWithString:@"https://twitter.com"];
     RKObjectManager *objectManager = [RKObjectManager managerWithBaseURL:baseURL];
+    
+    // HACK: Set User-Agent to Mac OS X so that Twitter will let us access the Timeline
+    [objectManager.HTTPClient setDefaultHeader:@"User-Agent" value:[NSString stringWithFormat:@"%@/%@ (Mac OS X %@)", [[[NSBundle mainBundle] infoDictionary] objectForKey:(NSString *)kCFBundleExecutableKey] ?: [[[NSBundle mainBundle] infoDictionary] objectForKey:(NSString *)kCFBundleIdentifierKey], [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"] ?: [[[NSBundle mainBundle] infoDictionary] objectForKey:(NSString *)kCFBundleVersionKey], [[NSProcessInfo processInfo] operatingSystemVersionString]]];
 
     // Enable Activity Indicator Spinner
     [AFNetworkActivityIndicatorManager sharedManager].enabled = YES;
@@ -66,6 +69,7 @@
 
     // Register our mappings with the provider
     RKResponseDescriptor *responseDescriptor = [RKResponseDescriptor responseDescriptorWithMapping:tweetMapping
+                                                                                            method:RKRequestMethodGET
                                                                                        pathPattern:@"/status/user_timeline/:username"
                                                                                            keyPath:nil
                                                                                        statusCodes:RKStatusCodeIndexSetForClass(RKStatusCodeClassSuccessful)];
@@ -85,7 +89,11 @@
     RKLogConfigureByName("RestKit/ObjectMapping", RKLogLevelInfo);
     RKLogConfigureByName("RestKit/CoreData", RKLogLevelTrace);
     
-    NSError *error;
+    NSError *error = nil;
+    BOOL success = RKEnsureDirectoryExistsAtPath(RKApplicationDataDirectory(), &error);
+    if (! success) {
+        RKLogError(@"Failed to create Application Data Directory at path '%@': %@", RKApplicationDataDirectory(), error);
+    }
     NSString *seedStorePath = [RKApplicationDataDirectory() stringByAppendingPathComponent:@"RKSeedDatabase.sqlite"];
     RKManagedObjectImporter *importer = [[RKManagedObjectImporter alloc] initWithManagedObjectModel:managedObjectModel storePath:seedStorePath];
     [importer importObjectsFromItemAtPath:[[NSBundle mainBundle] pathForResource:@"restkit" ofType:@"json"]
