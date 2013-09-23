@@ -387,6 +387,9 @@ RKRequestMethod RKRequestMethodTypeFromName(NSString *methodName) {
 - (BOOL)prepareURLRequest
 {
     [_URLRequest setHTTPMethod:[self HTTPMethod]];
+#warning timeout chagned here.
+    _URLRequest.timeoutInterval = 180;
+
 
     if ([self.delegate respondsToSelector:@selector(requestWillPrepareForSend:)]) {
         [self.delegate requestWillPrepareForSend:self];
