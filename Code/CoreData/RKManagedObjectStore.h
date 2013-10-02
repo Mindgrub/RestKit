@@ -59,7 +59,7 @@ extern NSString * const RKManagedObjectStoreDidFailSaveNotification;
 
 // Core Data
 @property (nonatomic, readonly) NSManagedObjectModel *managedObjectModel;
-// TODO: need to work GDNSPersistentStoreCoordinator
+
 @property (nonatomic, readonly) NSPersistentStoreCoordinator *persistentStoreCoordinator;
 
 ///-----------------------------------------------------------------------------

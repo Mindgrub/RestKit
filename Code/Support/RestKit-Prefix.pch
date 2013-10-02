@@ -4,16 +4,16 @@
 
 #ifdef __OBJC__
     #import <Foundation/Foundation.h>
-    #if GOOD_ENABLED
-        #import <GD/GDiOS>
-    #endif
-#endif
-
 #if GOOD_ENABLED
-    #import <GD/GDiOS.h>
+
+    #import <GD/GDFileSystem.h>
     #define GDNSPersistentStoreCoordinator GDPersistentStoreCoordinator
     //#define GDNSFileManager GDFileManager
-#else
+    #else
     #define GDNSPersistentStoreCoordinator NSPersistentStoreCoordinator
     //#define GDNSFileManager NSFileManager
+    #endif
+
 #endif
+
+
