@@ -151,6 +151,11 @@ extern NSString * const RKResponseHasBeenMappedCacheUserInfoKey;
  */
 @property (nonatomic, strong, readonly) RKHTTPRequestOperation *HTTPRequestOperation;
 
+/**
+ The underlying `RKHTTPRequestOperation` object will be submitted to this queue. Default is nil, which means that the operation will just be started immediately.
+ */
+@property (nonatomic, strong) NSOperationQueue *HTTPRequestQueue;
+
 ///-------------------------------------------------------
 /// @name Setting the Completion Block and Callback Queues
 ///-------------------------------------------------------

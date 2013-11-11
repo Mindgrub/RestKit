@@ -549,8 +549,13 @@ static NSString *RKStringDescribingURLResponseWithData(NSURLResponse *response, 
         [weakSelf.stateMachine finish];
     }];
     
-    // Send the request
-    [self.HTTPRequestOperation start];
+    // Send or enqueue the request
+    NSOperationQueue *requestQueue = self.HTTPRequestQueue;
+    if (requestQueue) {
+        [requestQueue addOperation:self.HTTPRequestOperation];
+    } else {
+        [self.HTTPRequestOperation start];
+    }
 }
 
 - (NSString *)description {
