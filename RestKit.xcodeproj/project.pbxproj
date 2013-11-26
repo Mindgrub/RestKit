@@ -2659,6 +2659,7 @@
 				PUBLIC_HEADERS_FOLDER_PATH = ../../Headers/RestKit;
 				SKIP_INSTALL = YES;
 				SYMROOT = "$(SRCROOT)/Build/Products";
+				TARGETED_DEVICE_FAMILY = 2;
 			};
 			name = Debug;
 		};
@@ -2677,6 +2678,7 @@
 				PUBLIC_HEADERS_FOLDER_PATH = ../../Headers/RestKit;
 				SKIP_INSTALL = YES;
 				SYMROOT = "$(SRCROOT)/Build/Products";
+				TARGETED_DEVICE_FAMILY = 2;
 			};
 			name = Release;
 		};
